@@ -1,17 +1,8 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
 
-
-class Settings(BaseSettings):
-    supabase_url: str
-    supabase_anon_key: str
-    supabase_service_key: str
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,   # match SUPABASE_URL → supabase_url
-        extra="ignore",         # ignore Railway's own injected variables
-    )
-
+class Settings:
+    supabase_url: str = os.environ["SUPABASE_URL"]
+    supabase_anon_key: str = os.environ["SUPABASE_ANON_KEY"]
+    supabase_service_key: str = os.environ["SUPABASE_SERVICE_KEY"]
 
 settings = Settings()
