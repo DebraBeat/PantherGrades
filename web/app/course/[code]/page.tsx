@@ -7,7 +7,7 @@ import GradeChart from "@/components/GradeChart";
 import TrendChart from "@/components/TrendChart";
 
 interface Props {
-  params: { code: string };
+  params: Promise<{ code: string }>;
 }
 
 // Aggregate grade totals across all sections for the chart
@@ -43,7 +43,8 @@ function aggregateTotals(sections: Section[]) {
 }
 
 export default async function CoursePage({ params }: Props) {
-  const code = decodeURIComponent(params.code).toUpperCase();
+  const { code: rawCode } = await params;
+  const code = decodeURIComponent(rawCode).toUpperCase();
 
   const [summary, trend, sections] = await Promise.allSettled([
     api.getCourseSummary(code),
