@@ -16,7 +16,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://*.vercel.app",
-],  # add your Vercel URL here later
+        "https://panther-grades.vercel.app"
+    ],  # add your Vercel URL here later
     allow_credentials=True,
     allow_methods=["GET"],
     allow_headers=["*"],
