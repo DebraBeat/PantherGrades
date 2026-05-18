@@ -60,8 +60,8 @@ export default function GradeChart({ totals, totalStudents }: GradeChartProps) {
             domain={[0, 100]}
           />
           <Tooltip
-            formatter={(value: number, name: string, props: { payload?: { count: number } }) => [
-              `${value}% (${props.payload?.count ?? 0} students)`,
+            formatter={(value, _name, props) => [
+              `${value != null ? value : 0}% (${props?.payload?.count ?? 0} students)`,
               "Share",
             ]}
             contentStyle={{
