@@ -41,7 +41,7 @@ export default function TrendChart({ data, deptAvgGpa }: TrendChartProps) {
             tickFormatter={(v) => v.toFixed(1)}
           />
           <Tooltip
-            formatter={(value: number) => [value.toFixed(2), "Avg GPA"]}
+            formatter={(value) => [value != null ? Number(value).toFixed(2) : "—", "Avg GPA"]}
             contentStyle={{
               borderRadius: "12px",
               border: "1px solid #e2e8f0",
