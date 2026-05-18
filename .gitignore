@@ -17,6 +17,12 @@ build/
 # Data — institutional CSV files should never be in the repo
 data/
 
+# ipynb files
+analysis/
+
+# web
+web/.env.local
+
 # Node / Next.js (for later)
 node_modules/
 .next/

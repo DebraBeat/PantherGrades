@@ -13,7 +13,7 @@ app = FastAPI(
 # Tighten origins before going to production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # add your Vercel URL here later
+    allow_origins=["http://localhost:3000", "https://panthergrades-production.up.railway.app"],  # add your Vercel URL here later
     allow_credentials=True,
     allow_methods=["GET"],
     allow_headers=["*"],
