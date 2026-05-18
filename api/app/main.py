@@ -13,7 +13,10 @@ app = FastAPI(
 # Tighten origins before going to production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # add your Vercel URL here later
+    allow_origins=[
+        "http://localhost:3000",
+        "https://*.vercel.app",
+],  # add your Vercel URL here later
     allow_credentials=True,
     allow_methods=["GET"],
     allow_headers=["*"],
@@ -28,16 +31,3 @@ app.include_router(analytics.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-@app.get("/debug-env")
-def debug_env():
-    import os
-    url = os.environ.get("SUPABASE_URL", "NOT SET")
-    anon = os.environ.get("SUPABASE_ANON_KEY", "NOT SET")
-    service = os.environ.get("SUPABASE_SERVICE_KEY", "NOT SET")
-    return {
-        "SUPABASE_URL": url,
-        "SUPABASE_ANON_KEY_length": len(anon),
-        "SUPABASE_ANON_KEY_first10": anon[:10],
-        "SUPABASE_SERVICE_KEY_length": len(service),
-    }
