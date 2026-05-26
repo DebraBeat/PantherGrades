@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_client
+import re
 
 router = APIRouter(prefix="/department", tags=["department"])
 

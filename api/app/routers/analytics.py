@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from typing import Optional
 from app.database import get_client
 from app.auth import get_user_tier, require_pro
+import re
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
