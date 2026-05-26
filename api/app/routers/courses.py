@@ -22,6 +22,7 @@ class Course(BaseModel):
     course_code: str
     department: Optional[str]
     course_number: Optional[str]
+    title: Optional[str]
 
 
 class CourseDetail(BaseModel):
@@ -29,6 +30,7 @@ class CourseDetail(BaseModel):
     course_code: str
     department: Optional[str]
     course_number: Optional[str]
+    title: Optional[str]
     total_sections: int
     avg_gpa: Optional[float]
     avg_dwf_pct: Optional[float]
@@ -44,7 +46,7 @@ def list_courses(
 ):
     """Return a paginated list of courses, optionally filtered by department."""
     client = get_client()
-    query = client.table("courses").select("id, course_code, department, course_number")
+    query = client.table("courses").select("id, course_code, department, course_number, title")
 
     if department:
         query = query.eq("department", department.upper())
@@ -68,7 +70,7 @@ def search_courses(
     # Try matching course_code prefix first (most common use case)
     result = (
         client.table("courses")
-        .select("id, course_code, department, course_number")
+        .select("id, course_code, department, course_number, title")
         .ilike("course_code", f"{q.upper()}%")
         .order("course_code")
         .limit(limit)
@@ -79,7 +81,7 @@ def search_courses(
     if not result.data:
         result = (
             client.table("courses")
-            .select("id, course_code, department, course_number")
+            .select("id, course_code, department, course_number, title")
             .ilike("course_code", f"%{q.upper()}%")
             .order("course_code")
             .limit(limit)
@@ -127,7 +129,7 @@ def get_course(course_code: str):
 
     course_result = (
         client.table("courses")
-        .select("id, course_code, department, course_number")
+        .select("id, course_code, department, course_number, title")
         .eq("course_code", code)
         .single()
         .execute()
