@@ -80,6 +80,9 @@ export const api = {
   searchCourses: (q: string) =>
     apiFetch<Course[]>(`/courses/search?q=${encodeURIComponent(q)}&limit=10`),
 
+  getDepartments: () =>
+    apiFetch<string[]>(`/courses/departments`),
+
   getCourse: (code: string) =>
     apiFetch<CourseDetail>(`/courses/${encodeURIComponent(code)}`),
 
