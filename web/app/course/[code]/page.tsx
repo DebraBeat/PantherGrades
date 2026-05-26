@@ -46,17 +46,19 @@ export default async function CoursePage({ params }: Props) {
   const { code: rawCode } = await params;
   const code = decodeURIComponent(rawCode).toUpperCase();
 
-  const [summary, trend, sections] = await Promise.allSettled([
+  const [summary, trend, sections, courseDetail] = await Promise.allSettled([
     api.getCourseSummary(code),
     api.getCourseTrend(code),
     api.getSections(code),
+    api.getCourse(code),
   ]);
 
   if (summary.status === "rejected") notFound();
 
   const s           = summary.value;
-  const trendData   = trend.status   === "fulfilled" ? trend.value   : [];
-  const sectionData = sections.status === "fulfilled" ? sections.value : [];
+  const trendData   = trend.status        === "fulfilled" ? trend.value        : [];
+  const sectionData = sections.status     === "fulfilled" ? sections.value     : [];
+  const title       = courseDetail.status === "fulfilled" ? courseDetail.value.title : null;
 
   const { totals, totalStudents } = aggregateTotals(sectionData);
 
@@ -89,7 +91,7 @@ export default async function CoursePage({ params }: Props) {
           </Link>
           <span className="text-slate-300">|</span>
           <span className="font-mono font-bold text-slate-800">{code}</span>
-          <span className="text-sm text-slate-400">{s.department}</span>
+          {title && <span className="text-sm text-slate-400 truncate max-w-xs">{title}</span>}
         </div>
       </div>
 
@@ -97,10 +99,18 @@ export default async function CoursePage({ params }: Props) {
 
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {code}
-          </h1>
-          <p className="text-slate-500 mt-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+              {code}
+            </h1>
+            <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
+              {s.department}
+            </span>
+          </div>
+          {title && (
+            <p className="text-lg text-slate-600 mt-1 font-medium">{title}</p>
+          )}
+          <p className="text-slate-400 text-sm mt-1">
             {s.total_sections} sections &middot; {s.total_students.toLocaleString()} total students
           </p>
         </div>

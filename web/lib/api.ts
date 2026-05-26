@@ -5,6 +5,7 @@ export interface Course {
   course_code: string;
   department: string | null;
   course_number: string | null;
+  title: string | null;
 }
 
 export interface CourseDetail extends Course {

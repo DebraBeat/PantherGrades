@@ -79,12 +79,19 @@ export default function SearchBar() {
             <button
               key={course.id}
               onClick={() => handleSelect(course.course_code)}
-              className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0"
+              className="w-full flex items-start gap-4 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0"
             >
-              <span className="font-mono text-sm font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg min-w-fit">
+              <span className="font-mono text-sm font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg min-w-fit mt-0.5">
                 {course.course_code.trim()}
               </span>
-              <span className="text-slate-500 text-sm">{course.department}</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-slate-800 text-sm font-medium truncate">
+                  {course.title ?? course.department}
+                </span>
+                {course.title && (
+                  <span className="text-slate-400 text-xs">{course.department}</span>
+                )}
+              </div>
             </button>
           ))}
         </div>
