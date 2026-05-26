@@ -127,18 +127,28 @@ def get_course(course_code: str):
         import re
         code = re.sub(r"([A-Z]+)(\d)", r"\1 \2", code)
 
-    course_result = (
-        client.table("courses")
-        .select("id, course_code, department, course_number, title")
-        .eq("course_code", code)
-        .single()
-        .execute()
-    )
+    try:
+        course_result = (
+            client.table("courses")
+            .select("id, course_code, department, course_number, title")
+            .eq("course_code", code)
+            .maybe_single()
+            .execute()
+        )
+        course = course_result.data if course_result else None
+    except Exception:
+        course = None
 
-    if not course_result.data:
-        raise HTTPException(status_code=404, detail=f"Course '{code}' not found")
-
-    course = course_result.data
+    if not course:
+        # Course missing from catalog — synthesize a minimal record from sections
+        dept = re.match(r"([A-Z]+)", code)
+        course = {
+            "id": None,
+            "course_code": code,
+            "department": dept.group(1) if dept else None,
+            "course_number": code.split()[-1] if " " in code else None,
+            "title": None,
+        }
 
     # Fetch sections for this course with grade totals joined
     sections_result = (
