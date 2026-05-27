@@ -1,11 +1,26 @@
 import Link from "next/link";
 import { ArrowLeft, Database, BarChart2, AlertTriangle, RefreshCw } from "lucide-react";
+import { ReactNode } from "react";
+import React from "react";
 
-const SECTIONS = [
+const SECTIONS: { icon: React.ElementType; title: string; content: ReactNode }[] = [
   {
     icon: Database,
     title: "Data source",
-    content: `All grade distribution data comes from official Georgia State University records, obtained through GSU's public grade distribution reports. The dataset covers Fall 2005 through Spring 2026 and includes over 262,000 course sections across more than 2,200 unique courses and 2,400 instructors.`,
+    content: (
+      <>
+        All grade distribution data comes from official Georgia State University records, obtained through GSU&apos;s{" "}
+        <a
+          href="https://dssapex.gsu.edu/ords/f?p=140:1::::NO"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-blue-600 hover:text-blue-700"
+        >
+          public grade distribution portal
+        </a>
+        . The dataset covers Fall 2005 through Spring 2026 and includes over 262,000 course sections across more than 2,200 unique courses and 2,400 instructors.
+      </>
+    ),
   },
   {
     icon: BarChart2,
