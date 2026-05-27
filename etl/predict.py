@@ -47,7 +47,7 @@ logging.basicConfig(
 log = logging.getLogger("predict")
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-DEFAULT_HALFLIFE = 4          # semesters
+DEFAULT_HALFLIFE = 6          # semesters (two years)
 CONFIDENCE_HIGH   = 500       # effective students
 CONFIDENCE_MEDIUM = 100
 
