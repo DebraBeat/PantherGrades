@@ -76,6 +76,21 @@ async function apiFetch<T>(path: string): Promise<T> {
   return res.json();
 }
 
+export interface GradePrediction {
+  instruction_method: string;
+  pred_a: number | null;
+  pred_b: number | null;
+  pred_c: number | null;
+  pred_d: number | null;
+  pred_f: number | null;
+  pred_w: number | null;
+  pred_gpa: number | null;
+  n_sections: number | null;
+  n_students: number | null;
+  confidence: string | null;
+  latest_term: string | null;
+}
+
 export interface DepartmentSummary {
   department: string;
   course_count: number;
@@ -108,6 +123,9 @@ export const api = {
 
   listDepartments: () =>
     apiFetch<DepartmentSummary[]>(`/department`),
+
+  getCoursePrediction: (code: string) =>
+    apiFetch<GradePrediction[]>(`/analytics/course/${encodeURIComponent(code)}/prediction`),
 
   getDepartmentSchedule: (dept: string, terms = 10) =>
     apiFetch<DepartmentSchedule>(`/department/${encodeURIComponent(dept)}/schedule?terms=${terms}`),

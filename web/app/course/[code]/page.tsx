@@ -4,6 +4,7 @@ import { ArrowLeft, Users, BookOpen, Wifi, Building2 } from "lucide-react";
 import { api, Section } from "@/lib/api";
 import StatCard from "@/components/StatCard";
 import DataSourceBanner from "@/components/DataSourceBanner";
+import PredictionChart from "@/components/PredictionChart";
 import GradeChart from "@/components/GradeChart";
 import TrendChart from "@/components/TrendChart";
 
@@ -47,11 +48,12 @@ export default async function CoursePage({ params }: Props) {
   const { code: rawCode } = await params;
   const code = decodeURIComponent(rawCode).toUpperCase();
 
-  const [summary, trend, sections, courseDetail] = await Promise.allSettled([
+  const [summary, trend, sections, courseDetail, prediction] = await Promise.allSettled([
     api.getCourseSummary(code),
     api.getCourseTrend(code),
     api.getSections(code),
     api.getCourse(code),
+    api.getCoursePrediction(code),
   ]);
 
   if (summary.status === "rejected") notFound();
@@ -60,6 +62,7 @@ export default async function CoursePage({ params }: Props) {
   const trendData   = trend.status        === "fulfilled" ? trend.value        : [];
   const sectionData = sections.status     === "fulfilled" ? sections.value     : [];
   const title       = courseDetail.status === "fulfilled" ? courseDetail.value.title : null;
+  const predictions = prediction.status === "fulfilled" ? prediction.value : null;
 
   const { totals, totalStudents } = aggregateTotals(sectionData);
 
@@ -152,6 +155,19 @@ export default async function CoursePage({ params }: Props) {
           </div>
           <GradeChart totals={totals} totalStudents={totalStudents} />
         </div>
+
+        {/* Grade prediction */}
+        {predictions && predictions.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col gap-4">
+            <div>
+              <h2 className="font-semibold text-slate-800">Expected grade distribution</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Predicted based on historical data · weighted toward recent semesters
+              </p>
+            </div>
+            <PredictionChart predictions={predictions} />
+          </div>
+        )}
 
         {/* GPA trend */}
         {trendData.length > 1 && (

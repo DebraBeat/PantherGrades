@@ -148,18 +148,23 @@ def course_summary(course_code: str):
     client = get_client()
     code = course_code.upper().replace("-", " ")
 
-    # Get department from course
-    course_result = (
-        client.table("courses")
-        .select("department")
-        .eq("course_code", code)
-        .single()
-        .execute()
-    )
-    if not course_result.data:
-        raise HTTPException(status_code=404, detail=f"Course '{code}' not found")
+    # Get department from course — fall back to parsing code if not in catalog
+    import re as _re
+    try:
+        course_result = (
+            client.table("courses")
+            .select("department")
+            .eq("course_code", code)
+            .maybe_single()
+            .execute()
+        )
+        dept = course_result.data["department"] if course_result.data else None
+    except Exception:
+        dept = None
 
-    dept = course_result.data["department"]
+    if not dept:
+        m = _re.match(r"([A-Z]+)", code)
+        dept = m.group(1) if m else code.split()[0]
 
     # Fetch this course's sections
     sections = _fetch_course_sections(client, code)
@@ -486,3 +491,51 @@ def department_overview(
         "hardest_courses": courses[:top_n],
         "easiest_courses": list(reversed(courses))[:top_n],
     }
+
+# ── Grade prediction endpoint ──────────────────────────────────────────────────
+
+class GradePrediction(BaseModel):
+    course_code: str
+    instruction_method: str
+    pred_a: Optional[float]
+    pred_b: Optional[float]
+    pred_c: Optional[float]
+    pred_d: Optional[float]
+    pred_f: Optional[float]
+    pred_w: Optional[float]
+    pred_gpa: Optional[float]
+    n_sections: Optional[int]
+    n_students: Optional[int]
+    confidence: Optional[str]
+    latest_term: Optional[str]
+
+
+@router.get("/course/{course_code}/prediction", response_model=list[GradePrediction])
+def course_prediction(course_code: str):
+    """
+    Return pre-computed grade distribution predictions for a course.
+    Returns predictions for all available instruction methods (all, in_person, online).
+    Available to all users — free tier.
+    """
+    client = get_client()
+    code = course_code.upper().replace("-", " ")
+
+    result = (
+        client.table("course_predictions")
+        .select(
+            "course_code, instruction_method, "
+            "pred_a, pred_b, pred_c, pred_d, pred_f, pred_w, "
+            "pred_gpa, n_sections, n_students, confidence, latest_term"
+        )
+        .eq("course_code", code)
+        .order("instruction_method")
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No prediction available for '{code}'. Run predict.py to generate predictions."
+        )
+
+    return result.data
