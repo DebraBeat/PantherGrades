@@ -16,7 +16,7 @@ export default function DataSourceBanner() {
           official GSU grade distribution records
         </a>
         {" "}· 2005–2026 · Aggregate only — no individual student records.
-        GPA uses a 4.33 scale. DWF rate = % of students with D, WF, or F.{" "}
+        GPA uses a 4.30 scale. DWF rate = % of students with D, WF, or F.{" "}
         <Link href="/about" className="underline hover:text-slate-700 transition-colors">
           Learn more
         </Link>

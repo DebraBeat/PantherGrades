@@ -25,7 +25,7 @@ const SECTIONS: { icon: React.ElementType; title: string; content: ReactNode }[]
   {
     icon: BarChart2,
     title: "Methodology",
-    content: `Grade distributions show the percentage of students earning each letter grade (A, B, C, D, F) as well as withdrawals (W) and withdraw-fails (WF) in each course section. The course average GPA is provided directly by GSU and uses a 4.33 scale where A+ = 4.33, A = 4.0, A− = 3.7, and so on. The DWF rate represents the percentage of students who received a D, withdrew with a failing grade (WF), or failed (F) — a standard at-risk metric used by GSU's academic advising office. Department averages are computed as weighted means across all graded sections in a department, weighted by enrollment.`,
+    content: `Grade distributions show the percentage of students earning each letter grade (A, B, C, D, F) as well as withdrawals (W) and withdraw-fails (WF) in each course section. The course average GPA is provided directly by GSU and uses a 4.30 scale where A+ = 4.30, A = 4.0, A− = 3.7, and so on. The DWF rate represents the percentage of students who received a D, withdrew with a failing grade (WF), or failed (F) — a standard at-risk metric used by GSU's academic advising office. Department averages are computed as weighted means across all graded sections in a department, weighted by enrollment.`,
   },
   {
     icon: AlertTriangle,

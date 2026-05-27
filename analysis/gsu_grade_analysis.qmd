@@ -1,0 +1,818 @@
+---
+title: "Analysis of Grade Inflation at Georgia State University"
+author: "Debra Ritter"
+format:
+  html:
+    theme: darkly
+    toc: true
+    code-fold: true
+    code-tools: true
+editor: visual
+---
+
+How does AI and the COVID-19 pandemic correlate with how university grades are distributed? I recently analyzed historical university grade data, and the results revealed a massive, statistically significant structural break.
+
+Researchers have found that AI has [dramatically impacted grades.](https://www.wsj.com/us-news/education/a-grades-are-suddenly-everywhere-since-the-arrival-of-chatgpt-845baae7) While the research linked looked at grades from a large university in Texas, I wanted to see how graded changed at my alma-mater, Georgia State University.
+
+Using a [database of publicly accessible grades](https://dssapex.gsu.edu/ords/f?p=140:1::::NO), I've created a [website](https://panther-grades.vercel.app/) to explore grades. In this notebook I perform a Exploratory Data Analysis to evaluate grade inflation at GSU.
+
+## Measuring Grade Inflation by Proportions of A and DWF grades
+
+One way to measure a course's difficulty (or ease) is by analyzing the proportion of grades. To analyze a courses' ease, it is sensible to look at the proportion of `A` grades. To analyze the difficulty, it is sensible to look at the proportion of `DWF` (`D` through withdraw-fail) grades.
+
+There's a couple factors we must consider:
+
+1.  Grade Inflation: With or without AI, [grade inflation has been a noted trend](en.wikipedia.org/wiki/Grade_inflation#In_the_United_States)
+2.  COVID's Impact: It has been noted that [COVID has inflated grades as well](https://caldercenter.org/publications/course-grades-signal-student-achievement-evidence-grade-inflation-and-after-covid-19)
+
+This gives us a couple problems to deal with, but also ways to deal with it.
+
+1.  We group semesters into three periods:
+    - Pre-AI, Pre-COVID (2005 through 2019)
+    - COVID (2020 through 2022)
+    - Post-AI, Post-COVID (2023 through 2025)
+2.  We visually inspect our periods. What intuitions and information can we extract from graphs?
+3.  We perform a test of proportions, seeing how the periods' proportions of grades differ.
+4.  We perform tests on linear model slopes to see how significant grade inflation changes are periods.
+5.  We inspect and evaluate changes to average GPA over time.
+
+We deal with our first problem (Grade Inflation) in our second subsection, for now let's focus on proportions and get a general idea of grade distributions and grades over time.
+
+### Imports and data loading
+
+```{r}
+library(DBI)
+library(RPostgres)
+library(dotenv)
+library(tidyverse)
+library(broom)
+library(knitr)
+# load_dot_env()  # reads .env from project root
+
+```
+
+```{r}
+con <- DBI::dbConnect(
+  RPostgres::Postgres(),
+  host     = Sys.getenv("SUPABASE_HOST"),
+  dbname   = Sys.getenv("SUPABASE_DB"),
+  user     = Sys.getenv("SUPABASE_USER"),
+  password = Sys.getenv("SUPABASE_PASSWORD"),
+  port     = Sys.getenv("SUPABASE_PORT"),
+  sslmode  = "disable"   # required for Supabase
+)
+
+df <- dbReadTable(con, "grade_letter_totals")
+```
+
+```{r}
+head(df)
+```
+
+Let's convert our dataframe in long format for easy usage.
+
+```{r}
+df_long <- df |> 
+  select(term_code, grade_a:w) |>
+  pivot_longer(
+    cols = grade_a:w,
+    names_to = "grade_type",
+    values_to = "count"
+  ) |>
+  group_by(term_code, grade_type) |>
+  summarize(sum(count))
+
+df_long
+```
+
+```{r}
+df_long_cleaned <- df_long |>
+  mutate(
+    semester = case_match(str_sub(term_code, 5, 6),
+                          "08" ~ "Fall ",
+                          "01" ~ "Spring ",
+                          "05" ~ "Summer "),
+    grade = case_match(grade_type,
+                       "grade_a" ~ "A",
+                       "grade_b" ~ "B",
+                       "grade_c" ~ "C",
+                       "grade_d" ~ "D",
+                       "grade_f" ~ "F",
+                       "w" ~ "W",
+                       "wf" ~ "WF"),
+    year = as.integer(str_sub(term_code, 3, 4)),
+    term = str_c(semester, year),
+    grade = factor(grade, levels = c("WF", "W", "F", "D", "C", "B", "A"))
+  ) |>
+  ungroup() |>
+  rename(count = `sum(count)`) |>
+  select(, -grade_type) |>
+  arrange(term_code)
+
+df_long_cleaned
+
+```
+
+### Graphing grade distributions
+
+```{r}
+ggplot(data = df_long_cleaned, aes(x = term_code, y = count, fill=grade)) +
+  geom_col(position = "fill", width = 0.7) +
+  scale_x_discrete(
+    breaks = unique(df_long_cleaned$term_code)[seq(1, length(unique(df_long_cleaned$term_code)), by = 10)]
+  ) +
+  labs(
+    title = "Proportion of grades by semester",
+    x = " ",
+    y = "Proportion",
+    fill = "Grade"
+  ) + 
+  scale_fill_brewer(palette = "Blues") +
+  theme_minimal()
+```
+
+## How has the proportion of A grades changed over time at Georgia State University?
+
+To measure a courses' ease, let's investigate the proportion A grades.
+
+```{r}
+df_A <- df_long_cleaned |>
+  mutate(
+    grade = case_match(grade,
+                       "A" ~ "A",
+                       .default = "Other"),
+    grade = factor(grade, levels = c("Other", "A"))
+  )
+
+ggplot(data = df_A, aes(x = term_code, y = count, fill=grade)) +
+  geom_col(position = "fill", width = 0.7) +
+    scale_x_discrete(
+    breaks = unique(df_A$term_code)[seq(1, length(unique(df_A$term_code)), by = 10)]
+  ) +
+  labs(
+    title = "Proportion of A grades by semester",
+    x = "Semester ",
+    y = "Proportion of As",
+    fill = "Grade"
+  ) + 
+  scale_fill_brewer(palette = 1) +
+  theme_minimal()
+```
+
+### Graphing A distribution in our subgroups
+
+```{r}
+pre_covid_A_df <- df_A |>
+  filter(term_code >= "200508" & term_code <= "201908") |>
+  mutate(period = "Pre-COVID")
+
+covid_A_df <- df_A |>
+  filter(term_code >= "202001" & term_code <= "202208") |>
+  mutate(period = "COVID")
+
+post_covid_A_df <- df_A |>
+  filter(term_code >= "202301" & term_code <= "202601") |>
+  mutate(period = "Post-COVID")
+
+combined_df <- bind_rows(pre_covid_A_df, covid_A_df, post_covid_A_df)
+
+df_plot <- combined_df %>%
+  # Enforce the chronological order of your periods
+  mutate(period = factor(period, levels = c("Pre-COVID", "COVID", "Post-COVID"))) %>%
+  # Group by period and grade to sum up the counts
+  group_by(period, grade) %>%
+  summarize(total_count = sum(count, na.rm = TRUE), .groups = "drop_last") %>%
+  # Calculate proportion relative ONLY to that specific time period's total
+  mutate(proportion = total_count / sum(total_count)) %>%
+  ungroup()
+
+ggplot(df_plot, aes(x = grade, y = proportion, fill = period)) +
+  geom_col(position = "dodge", width = 0.7) +
+  scale_y_continuous(labels = scales::percent) + # Changes 0.25 to 25% on the y-axis
+  labs(
+    title = "Proportion of A Grades Over Different Time Periods",
+    subtitle = "Proportions calculated within each respective time period",
+    x = "grade",
+    y = "Percentage of Total Grades",
+    fill = "Time Period"
+  ) +
+  scale_fill_brewer(palette = 1) +
+  theme_minimal()
+```
+
+It is clear to see that the proportion of A grade proportions seems to be rising. Interestingly, it seems there was an "A grade cull" starting in Fall 2016, around the time when Georgia State and Georgia Perimeter College merged. Since then, A grade proportions have exceeded where they where before 2016. Additionally, it seems AI has not affected the general inflation of A grades
+
+Another note of surprise is that summer classes seem to give a higher proportion of A grades than Fall and Spring Semesters. Although not relevant to the central inquiry of this notebook, this should be investigated.
+
+### Statistical testing of A grade proportions
+
+However it is important to view this statistically and not just visually. Thus let's perform some statistical testing.
+
+```{r}
+df_groups_A <- combined_df |>
+  group_by(period) |>
+  summarise(
+    a_count = sum(count[grade == 'A']),
+    total_count = sum(count)
+  )
+
+df_groups_A
+```
+
+```{r}
+# Proportion test
+group_test_A <- prop.test(x = df_groups_A$a_count, n = df_groups_A$total_count)
+
+tidy(group_test_A) |>
+  rename(
+    `COVID` = estimate1,
+    `Post-COVID` = estimate2,
+    `Pre-COVID` = estimate3
+  ) |> 
+  mutate(across(
+    all_of(as.character(df_groups_A$period)), 
+    ~ scales::label_percent(accuracy = 0.01)(.)
+  ))
+```
+
+Indeed, we can statistically confirm the proportion of A grades is different across time periods. Pre-COVID had the lowest proportion of A grades, followed by COVID gaining a significant bump, and Post-COVID an additional bump.
+
+### Investigating rate of A grade inflation across different time periods
+
+We now know that A grade inflation at GSU is a real thing. However a natural question arises: How has the rate of A grade inflation changed across time periods?
+
+I.E. if we draw a line which best describes the proportion of A grades, would the slope of that line be statistically different between time periods?
+
+To answer this we'll develop a linear model describing the proportion of A grades across time periods, then perform a statistical test to determine if the slopes are the same or different.
+
+```{r}
+# A function to calculate months elapsed
+calculate_months_elapsed <- function(term_code) {
+
+  
+  # Extract the year and semester parts
+  year <- as.numeric(substr(term_code, 1, 4))
+  semester <- substr(term_code, 5, 6)
+  
+  # Assign a baseline month number based on the semester digit
+  month_of_year <- case_when(
+    semester %in% c("01", "1") ~ 1,   # January (Spring)
+    semester %in% c("05", "06") ~ 6,  # June (Summer)
+    semester %in% c("08", "8") ~ 8,   # August (Fall)
+    TRUE ~ NA_real_
+  )
+  
+  # Calculate total absolute months since Year 0
+  total_months <- (year * 12) + month_of_year
+  
+  # Subtract the baseline (August 2005) so 200508 becomes 0
+  baseline_months <- (2005 * 12) + 8
+  months_elapsed <- total_months - baseline_months
+  
+  return(months_elapsed)
+}
+```
+
+```{r}
+get_proportion_df <- function(period_df, grade_filter, period_label) {
+  result <- period_df |>
+    # Aggregate counts per term and grade
+    group_by(term_code, semester, grade) |>
+    summarise(total_count = sum(count), .groups = "drop_last") |>
+
+    # Calculate proportions while 'other' is still present
+    mutate(proportion = total_count / sum(total_count)) |>
+    ungroup() |>
+
+    # Drop the 'other' rows now that math is done
+    filter(grade == grade_filter) |>
+
+    # Pivot wider
+    pivot_wider(
+      id_cols = c(semester, term_code),
+      names_from = grade,
+      values_from = proportion
+    ) |>
+
+    mutate(months_elapsed = calculate_months_elapsed(term_code)) |>
+    mutate(period = period_label)
+
+  return(result)
+}
+```
+
+```{r}
+pre_covid_A_proportion_df  <- get_proportion_df(pre_covid_A_df,  "A",   "Pre-COVID")
+covid_A_proportion_df      <- get_proportion_df(covid_A_df,      "A",   "COVID")
+post_covid_A_proportion_df <- get_proportion_df(post_covid_A_df, "A",   "Post-COVID")
+
+combined_A_proportion_df <- bind_rows(pre_covid_A_proportion_df, covid_A_proportion_df, post_covid_A_proportion_df) |>
+  mutate(period = factor(period, levels = c("Pre-COVID", "COVID", "Post-COVID")))
+
+combined_model <- lm(A ~ months_elapsed * period, data = combined_A_proportion_df)
+summary(combined_model)
+```
+
+**Interpretations**:
+
+- Our model compared `months_elapsed` to the proportion of `A` grades. With an estimate greater than zero and a $p$-value greater than $0.05$, we cannot say that the proportion of A grades is significantly increasing pre-COVID
+- Using the pre-COVID slope as a baseline, we we can see that the COVID and Post-COVID period's rate of grade inflation did not meaningfully change (with $p$-values of $0.645$ and $0.313$ respectively).
+
+However as we will see below, the summer semester clearly affects the regression line of the Pre-COVID period due to it's significantly higher proportion of A grades. Let's build a model to account for this
+
+```{r}
+combined_model_with_semester <- lm(A ~ months_elapsed * period + semester, data = combined_A_proportion_df)
+summary(combined_model_with_semester)
+```
+
+**Interpretations**:
+
+- We cannot say that the proportion of `A` grades is significantly increasing with a `months_elapsed` $p$-value greater than $0.05$ pre-covid.
+- With $p$-values of $0.2304$ and $0.0182$, our COVID regression line is not significantly different, but our post-COVID line **is**.
+- With a value of $8.12\%$ and $p$-value of less than $0.05$, we can see that the summer semester significantly improves proportions of `A` grades.
+
+### Graphing regression lines
+
+```{r}
+# Create a clean subset to act as your axis label blueprint.
+# This grabs every 10th chronological term and remembers its exact month number.
+axis_breaks_df <- combined_A_proportion_df |> 
+  distinct(term_code, months_elapsed) |> 
+  arrange(months_elapsed) |> 
+  slice(seq(1, n(), by = 10))
+
+
+# Run the ggplot code
+ggplot(combined_A_proportion_df, aes(x = months_elapsed, y = A, color = period)) +
+  # Plot the raw proportions as distinct points
+  geom_point(size = 2.5, alpha = 0.6) +
+  
+  # Connect chronological points horizontally (inherits the continuous numeric x-axis)
+  geom_line(alpha = 0.3, linetype = "dashed") +
+  
+  # Overlay the linear regression models flawlessly
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1.2) +
+  
+  # We use continuous scaling, but override the breaks and labels with text!
+  scale_x_continuous(
+    breaks = axis_breaks_df$months_elapsed,
+    labels = axis_breaks_df$term_code
+  ) +
+  
+  # Visual styling
+  theme_minimal() +
+  labs(
+    title = "Proportion of A Grades Over Time by Historical Periods",
+    subtitle = "Not accounting for summer bumps, lines show linear regression trends",
+    x = "Semester", # Fixed label text to match what's displaying
+    y = "Proportion of A Grades",
+    color = "Period"
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1)) +
+  scale_color_brewer(palette = "Set1")
+```
+
+```{r}
+# Create a clean subset to act as your axis label blueprint.
+axis_breaks_df <- combined_A_proportion_df |> 
+  distinct(term_code, months_elapsed) |> 
+  arrange(months_elapsed) |> 
+  slice(seq(1, n(), by = 10))
+
+# Generate predictions
+plot_predictions_df <- augment(combined_model_with_semester, data = combined_A_proportion_df)
+
+# Run the ggplot code
+# FIX: Change y = A to y = .fitted to plot the adjusted data
+ggplot(plot_predictions_df, aes(x = months_elapsed, y = .fitted, color = period)) +
+  
+  # Plot the clean, seasonally-adjusted points
+  geom_point(size = 2.5, alpha = 0.6) +
+  
+  # Connect chronological points horizontally without summer spikes breaking the chain
+  geom_line(alpha = 0.3, linetype = "dashed") +
+  
+  # Overlay the adjusted linear regression models
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1.2) +
+  
+  # Continuous scaling with text labels override
+  scale_x_continuous(
+    breaks = axis_breaks_df$months_elapsed,
+    labels = axis_breaks_df$term_code
+  ) +
+  
+  # Visual styling
+  theme_minimal() +
+  labs(
+    title = "Seasonally-Adjusted Proportion of A Grades Over Time", # Updated title to match the data
+    subtitle = "Accounting for summer spikes reveals a significant post-COVID acceleration",
+    x = "Semester", 
+    y = "Adjusted Proportion of A Grades", # Updated label to be accurate
+    color = "Period"
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1)) +
+  scale_color_brewer(palette = "Set1")
+```
+
+## How has the proportion of DWF grades changed over time at Georgia State University?
+
+To measure a courses' difficulty, let's investigate the proportion DF grades.
+
+```{r}
+df_DWF <- df_long_cleaned |>
+  mutate(
+    grade = case_match(grade,
+                       "D" ~ "DWF",
+                       "F" ~ "DWF",
+                       "W" ~ "DWF",
+                       "WF" ~ "DWF",
+                       .default = "Other"),
+    grade = factor(grade, levels = c("Other", "DWF"))
+  )
+
+ggplot(data = df_DWF, aes(x = term_code, y = count, fill=grade)) +
+  geom_col(position = "fill", width = 0.7) +
+    scale_x_discrete(
+    breaks = unique(df_A$term_code)[seq(1, length(unique(df_A$term_code)), by = 10)]
+  ) +
+  labs(
+    title = "Proportion of DWF grades by semester",
+    x = "Semester ",
+    y = "Proportion of DWFs",
+    fill = "Grade"
+  ) + 
+  scale_fill_brewer(palette = 1) +
+  theme_minimal()
+```
+
+```{r}
+pre_covid_DWF_df <- df_DWF |>
+  filter(term_code >= "200508" & term_code <= "201908") |>
+  mutate(period = "Pre-COVID")
+
+covid_DWF_df <- df_DWF |>
+  filter(term_code >= "202001" & term_code <= "202208") |>
+  mutate(period = "COVID")
+
+post_covid_DWF_df <- df_DWF |>
+  filter(term_code >= "202301" & term_code <= "202601") |>
+  mutate(period = "Post-COVID")
+
+combined_df_DWF <- bind_rows(pre_covid_DWF_df, covid_DWF_df, post_covid_DWF_df)
+
+df_plot <- combined_df_DWF %>%
+  # Enforce the chronological order of time periods
+  mutate(period = factor(period, levels = c("Pre-COVID", "COVID", "Post-COVID"))) %>%
+  # Group by period and grade to sum up the counts
+  group_by(period, grade) %>%
+  summarize(total_count = sum(count, na.rm = TRUE), .groups = "drop_last") %>%
+  # Calculate proportion relative ONLY to that specific time period's total
+  mutate(proportion = total_count / sum(total_count)) %>%
+  ungroup()
+
+ggplot(df_plot, aes(x = grade, y = proportion, fill = period)) +
+  geom_col(position = "dodge", width = 0.7) +
+  scale_y_continuous(labels = scales::percent) + # Changes 0.25 to 25% on the y-axis
+  labs(
+    title = "Proportion of DWF Grades COVID Across Time Periods",
+    subtitle = "Proportions calculated within each respective time period",
+    x = "grade",
+    y = "Percentage of Total Grades",
+    fill = "Time Period"
+  ) +
+  scale_fill_brewer(palette = 1) +
+  theme_minimal()
+```
+
+Interestingly, it seems COVID had the highest proportion of `DWF` grades. It seems that students pre-COVID / AI were less likely to drop a class than after. Additionally, it seems the "A grade cull" as posted above also increased the proportion of DWF grades.
+
+Let's do a statistical test of proportions to confirm our findings about DWF proportions changing across periods.
+
+```{r}
+df_groups_DWF <- combined_df_DWF |>
+  group_by(period) |>
+  summarise(
+    dwf_count = sum(count[grade == 'DWF']),
+    total_count = sum(count)
+  )
+
+df_groups_DWF
+```
+
+```{r}
+# Proportion test
+group_test_DWF <- prop.test(x = df_groups_DWF$dwf_count, n = df_groups_DWF$total_count)
+
+tidy(group_test_DWF) |>
+  rename(
+    `COVID` = estimate1,
+    `Post-COVID` = estimate2,
+    `Pre-COVID` = estimate3
+  ) |> 
+  mutate(across(
+    all_of(as.character(df_groups_DWF$period)), 
+    ~ scales::label_percent(accuracy = 0.01)(.)
+  ))
+```
+
+Indeed, we can statistically confirm the proportion of DWF grades is different across time periods. Pre-COVID had the lowest proportion of `DWF` grades, followed by COVID gaining a significant bump, and Post-COVID the proportion of `DWF` grades shrunk.
+
+### Investigating rate of DWF grade proportions across different time periods
+
+We now know that `DWF` grade proportions have changed during different time periods at GSU. However a natural question arises: How has the rate of `DWF` grade proportions changed across time periods?
+
+I.E. if we draw a line which best describes the proportion of `DWF` grades, would the slope of that line be statistically different between time periods?
+
+To answer this we'll develop a linear model describing the proportion of `DWF` grades across time periods, then perform a statistical test to determine if the slopes are the same or different.
+
+```{r}
+pre_covid_DWF_proportion_df  <- get_proportion_df(pre_covid_DWF_df,  "DWF", "Pre-COVID")
+covid_DWF_proportion_df      <- get_proportion_df(covid_DWF_df,      "DWF", "COVID")
+post_covid_DWF_proportion_df <- get_proportion_df(post_covid_DWF_df, "DWF", "Post-COVID")
+
+combined_DWF_proportion_df <- bind_rows(pre_covid_DWF_proportion_df, covid_DWF_proportion_df, post_covid_DWF_proportion_df) |>
+  mutate(period = factor(period, levels = c("Pre-COVID", "COVID", "Post-COVID")))
+
+# Account for semester based on A proportion results
+combined_model <- lm(DWF ~ months_elapsed * period + semester, data = combined_DWF_proportion_df)
+summary(combined_model)
+```
+
+**Interpretations**:
+
+- The proportion of `DWF` grades significantly increases with a slope greater than 0 and a $p$-value less than $0.05$.
+- Summer semesters lead to a significant decrease of `DWF` grades.
+- Across pre-COVID to post-COVID periods, there is no significant increase of `DWF` grade proportion change.
+
+### Graphing regression lines for DWF proportion change
+
+```{r}
+# Create a clean subset to act as your axis label blueprint.
+axis_breaks_df <- combined_DWF_proportion_df |> 
+  distinct(term_code, months_elapsed) |> 
+  arrange(months_elapsed) |> 
+  slice(seq(1, n(), by = 10))
+
+# Generate predictions
+plot_predictions_df <- augment(combined_model, data = combined_DWF_proportion_df)
+
+# Run the ggplot code
+# FIX: Change y = A to y = .fitted to plot the adjusted data
+ggplot(plot_predictions_df, aes(x = months_elapsed, y = .fitted, color = period)) +
+  
+  # Plot the clean, seasonally-adjusted points
+  geom_point(size = 2.5, alpha = 0.6) +
+  
+  # Connect chronological points horizontally without summer spikes breaking the chain
+  geom_line(alpha = 0.3, linetype = "dashed") +
+  
+  # Overlay the adjusted linear regression models
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1.2) +
+  
+  # Continuous scaling with text labels override
+  scale_x_continuous(
+    breaks = axis_breaks_df$months_elapsed,
+    labels = axis_breaks_df$term_code
+  ) +
+  
+  # Visual styling
+  theme_minimal() +
+  labs(
+    title = "Seasonally-Adjusted Proportion of DWF Grades Over Time", # Updated title to match the data
+    subtitle = "Accounting for summer spikes reveals a significant post-COVID decceleration",
+    x = "Semester", 
+    y = "Adjusted Proportion of DWF Grades", # Updated label to be accurate
+    color = "Period"
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1)) +
+  scale_color_brewer(palette = "Set1")
+```
+
+## How has the average GPA changed over time at Georgia State University?
+
+```{r}
+calculate_term <- function(term_code) {
+  semester <- substr(term_code, 5, 6)
+  
+  term <- case_when(
+    semester %in% c("01", "1") ~ "Spring",
+    semester %in% c("06", "05") ~ "Summer",
+    semester %in% c("08", "8") ~ "Fall"
+  )
+  
+  return(term)
+}
+```
+
+```{r}
+calculate_period <- function(months_elapsed) {
+  period <- case_when(
+    months_elapsed < 173 ~ "Pre-COVID", # Months elapsed before COVID
+    months_elapsed >= 173 & months_elapsed < 209 ~ "COVID", # Months since 
+    # August 2005 for the COVID era (2020 to 2022)
+    months_elapsed >= 209 ~ "Post-COVID" # Post-COVID era
+  )
+  
+  return (period)
+}
+```
+
+```{r}
+weighted_gpa_df <- df |>
+  # Drop rows where gpa_avg is missing
+  filter(!is.na(gpa_avg)) |>
+  
+  # Use rowSums and across() to sum columns row-by-row
+  mutate(course_weight = rowSums(across(grade_a:grade_f), na.rm = TRUE)) |>
+  
+  # Filter out rows with zero weight
+  filter(course_weight > 0) |>
+  
+  # Group by semester
+  group_by(term_code) |>
+  
+  # Divide the total grade points by the total grades to get the final GPA
+  summarise(
+    weighted_gpa = sum(gpa_avg * course_weight) / sum(course_weight),
+    total_grade_term = sum(course_weight),
+    .groups = "drop"
+  ) |>
+  mutate(months_elapsed = calculate_months_elapsed(term_code)) |>
+  mutate(term = calculate_term(term_code)) |>
+  mutate(period = calculate_period(months_elapsed)) |>
+  mutate(period = factor(period, levels = c("Pre-COVID", "COVID", "Post-COVID")))
+  
+
+weighted_gpa_df
+```
+
+```{r}
+axis_breaks <- unique(weighted_gpa_df$term_code)[seq(1, length(unique(weighted_gpa_df$term_code)), by = 10)]
+
+# 2. Generate the plot
+ggplot(data = weighted_gpa_df, aes(x = term_code, y = weighted_gpa, group = 1)) + 
+  
+  # A. Add a soft background shading for the COVID-19 Era disruption
+  # It dynamically reads your timeline limits using your month index thresholds
+  annotate("rect", xmin = "202001", xmax = "202105", ymin = 0, ymax = 4.3, 
+           fill = "red", alpha = 0.07) +
+  
+  # B. Draw the base connecting timeline line
+  geom_line(color = "grey65", linewidth = 0.8) +
+  
+  # C. Color and shape points by semester type to instantly reveal the Summer effect
+  geom_point(aes(color = term, shape = term), size = 2.5) +
+  
+  # D. Add a text callout for the shaded pandemic block
+  annotate("text", x = "202005", y = 4.1, label = "COVID-19 Era", 
+           color = "red4", fontface = "italic", size = 3.5, hjust = 0.5) +
+  
+  # E. Manage layout, enforce standard 0-4.3 limits, and trim margins
+  scale_x_discrete(breaks = axis_breaks) + 
+  scale_y_continuous(limits = c(0, 4.3), expand = c(0, 0)) + 
+  
+  # F. Custom color palette for clean visual presentation
+  scale_color_manual(values = c("Fall" = "#2c3e50", "Spring" = "#2980b9", "Summer" = "#e67e22")) +
+  scale_shape_manual(values = c("Fall" = 16, "Spring" = 16, "Summer" = 17)) +
+  
+  # G. Professional theme polish
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold", size = 14, color = "#1a1a1a"),
+    plot.subtitle = element_text(size = 10, color = "grey40"),
+    legend.position = "bottom"
+  ) +
+  labs(
+    title = "Historical Analysis of Weighted Institutional GPA",
+    subtitle = "Exposing cyclical summer semester spikes and pandemic-era structural shifts",
+    x = "Academic Semester (Term Code)",
+    y = "Weighted Average GPA (0.0 - 4.3 Scale)",
+    color = "Semester:",
+    shape = "Semester:"
+  )
+```
+
+```{r}
+gpa_model = lm(weighted_gpa ~ months_elapsed * period + term, data = weighted_gpa_df)
+summary(gpa_model)
+```
+
+**Interpretations**:
+
+- Prior to the pandemic, institutional GPA was on a slow but statistically significant downward trajectory, decreasing by approximately $0.0005$ points per semester ($p = 0.0172$).
+- The pandemic created a significant structural break. While the active COVID period saw a sharp acceleration of decreasing GPAs ($p = 0.0165$), the Post-COVID era experienced a highly significant, positive slope reversal ($p = 0.0112$). Accounting for baseline trends, Post-COVID institutional GPAs are now increasing at a rate of roughly $0.005$ points per semester.
+- Independent of historical era, summer semesters display a massive, structurally consistent increase of $0.193$ GPA points ($p < 0.001$) relative to Fall semesters
+
+## Forecasting to 2028
+Using our model from post-COVID trends, lets predict the trajectory of institutional GPA to 2028.
+
+```{r}
+future_terms <- data.frame(
+  term_code = c("202605", "202608", "202701", "202705", "202708", "202801")
+)
+
+# Create the columns from the weighted_gpa_df
+future_df <- future_terms |> 
+  mutate(
+    months_elapsed = calculate_months_elapsed(term_code),
+    term           = calculate_term(term_code),
+    # Explicitly lock this as a factor matching the exact training levels
+    period         = factor("Post-COVID", levels = c("Pre-COVID", "COVID", "Post-COVID"))
+  )
+
+# Generate predictions WITH uncertainty bounds (Prediction Intervals)
+gpa_predictions <- predict(gpa_model, newdata = future_df, interval = "prediction")
+
+# 4. Bind the predictions back into our future dataframe
+future_forecast <- future_df |> 
+  mutate(
+    weighted_gpa = gpa_predictions[, "fit"],
+    gpa_lower    = gpa_predictions[, "lwr"],
+    gpa_upper    = gpa_predictions[, "upr"],
+    data_type    = "Forecast"
+  )
+
+# Prep historical data so it cleanly merges with the forecast
+historical_df <- weighted_gpa_df |> 
+  mutate(
+    gpa_lower = weighted_gpa, # Historical data has no uncertainty, lower bounds equal upper bounds
+    gpa_upper = weighted_gpa, 
+    data_type = "Historical"
+  )
+
+# 6. Combine everything into one master visualization dataframe
+full_timeline_df <- bind_rows(historical_df, future_forecast)
+
+gpa_predictions
+```
+
+```{r}
+# Create sparse axis labels for the extended timeline
+axis_breaks <- unique(full_timeline_df$term_code)[seq(1, length(unique(full_timeline_df$term_code)), by = 10)]
+
+ggplot(data = full_timeline_df, aes(x = term_code, y = weighted_gpa, group = 1)) +
+  
+  # A. Highlight the historical COVID Era block
+  annotate("rect", xmin = "202001", xmax = "202105", ymin = 0, ymax = 4.3, 
+           fill = "red", alpha = 0.05) +
+  
+  # B. DRAW THE UNCERTAINTY BAND: Shaded prediction intervals for the forecast zone
+  geom_ribbon(data = filter(full_timeline_df, data_type == "Forecast"),
+              aes(ymin = gpa_lower, ymax = gpa_upper), 
+              fill = "steelblue", alpha = 0.15, linetype = "dashed", color = "steelblue") +
+  
+  # C. Connect the historical line (solid) and forecast line (dashed)
+  geom_line(data = filter(full_timeline_df, data_type == "Historical"), color = "grey60", linewidth = 0.8) +
+  geom_line(data = filter(full_timeline_df, data_type == "Forecast"), color = "steelblue", linewidth = 0.8, linetype = "longdash") +
+  
+  # D. Overlay the points colored by semester type
+  geom_point(aes(color = term, shape = term), size = 2.5) +
+  
+  # Add a text callout for the shaded pandemic block
+  annotate("text", x = "202005", y = 4.1, label = "COVID-19 Era", 
+           color = "red4", fontface = "italic", size = 3.5, hjust = 0.5) +
+  
+  # E. Labels and Limits
+  scale_x_discrete(breaks = axis_breaks) + 
+  scale_y_continuous(limits = c(0, 4.3), expand = c(0, 0)) + 
+  scale_color_manual(values = c("Fall" = "#2c3e50", "Spring" = "#2980b9", "Summer" = "#e67e22")) +
+  scale_shape_manual(values = c("Fall" = 16, "Spring" = 16, "Summer" = 17)) +
+  
+  # F. Theme adjustments
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold", size = 14, color = "#1a1a1a"),
+    legend.position = "bottom"
+  ) +
+  labs(
+    title = "Institutional GPA Predictive Forecast Analysis",
+    subtitle = "Projecting the Post-COVID structural trajectory through 2028 with 95% prediction intervals",
+    x = "Academic Semester (Term Code)",
+    y = "Weighted Average GPA",
+    color = "Semester:",
+    shape = "Semester:"
+  )
+```
+
+### Interpretations
+Using the post-COVID linear trend, the model projects institutional GPA will continue its upward trajectory through 2028. By Spring 2028, the forecast estimates a weighted GPA of approximately 3.22, up from the post-COVID baseline of roughly 3.0 in early 2022. However, this projection carries important caveats: the model assumes the post-COVID structural shift is a permanent regime change rather than a transitory correction, and the 95% prediction intervals widen considerably as the horizon extends. Given that the post-COVID period only spans ~2 years of training data, these forecasts should be interpreted as illustrative of the current trajectory rather than reliable point estimates.
+
+## Conclusions:
+
+**Grade Inflation is Top-Heavy**: The post-pandemic environment triggered a structural increase in `A` grades. The university transitioned from a flat historical baseline of `A` grades and a slowly declining overall GPA to a lasting, aggressive acceleration in top marks post-2021.
+
+**Failure Rates Were Unfazed**: While the proportion of `A` grades increased, failure and withdrawal rates (`DWF`) were completely un-deflected by the pandemic. They simply continued along the same slow, upward historical climb that predated COVID-19.
+
+**The "Summer Mirage" is Real**: Across every single metric, summer semesters act as an independent grade-inflating anomaly. By mathematically isolating this effect, the models were able to reveal the true, underlying historical trends that would have otherwise been masked by seasonal noise.
+
+**The GSU-GPC Merger likely contributed to a dip in GPA**: [GSU underwent significant enrollment shifts in 2016 by merging with Georgia Perimeter College](https://lighthost.gsu.edu/gpcnewsroomarchive/stories/qa-ga-state-and-ga-perimeter-consolidation.html). Since then it has continued to grow as one of the largest universities in Georgia.
+
+It is important to note that this analysis is purely descriptive. This analysis documents that grade distributions changed, but cannot establish why. Changes in the size, demographics, or academic preparation of the incoming student body could independently shift grade distributions without any change in grading standards. Disentangling grading standard changes from compositional effects would require course- or instructor-level controls, which is a natural direction for future work.
+
+## Closing database connection
+
+```{r}
+dbDisconnect(con)
+```
