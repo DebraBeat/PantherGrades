@@ -76,9 +76,41 @@ async function apiFetch<T>(path: string): Promise<T> {
   return res.json();
 }
 
+export interface DepartmentSummary {
+  department: string;
+  course_count: number;
+}
+
+export interface ScheduleCell {
+  instructors: string[];
+  avg_gpa: number | null;
+}
+
+export interface ScheduleRow {
+  course_code: string;
+  title: string | null;
+  terms: Record<string, ScheduleCell | null>;
+}
+
+export interface DepartmentSchedule {
+  department: string;
+  term_codes: string[];
+  term_labels: Record<string, string>;
+  rows: ScheduleRow[];
+}
+
 export const api = {
   searchCourses: (q: string) =>
     apiFetch<Course[]>(`/courses/search?q=${encodeURIComponent(q)}&limit=10`),
+
+  getDepartments: () =>
+    apiFetch<string[]>(`/courses/departments`),
+
+  listDepartments: () =>
+    apiFetch<DepartmentSummary[]>(`/department`),
+
+  getDepartmentSchedule: (dept: string, terms = 10) =>
+    apiFetch<DepartmentSchedule>(`/department/${encodeURIComponent(dept)}/schedule?terms=${terms}`),
 
   getCourse: (code: string) =>
     apiFetch<CourseDetail>(`/courses/${encodeURIComponent(code)}`),

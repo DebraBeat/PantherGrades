@@ -57,37 +57,50 @@ def list_courses(
 
 @router.get("/search", response_model=list[Course])
 def search_courses(
-    q: str = Query(..., min_length=2, description="Search term — course code or department"),
+    q: str = Query(..., min_length=2, description="Search term — course code or title"),
     limit: int = Query(20, ge=1, le=50),
 ):
     """
-    Search courses by course code prefix.
+    Search courses by course code prefix or title keyword.
     e.g. /courses/search?q=ACCT returns all accounting courses.
-    e.g. /courses/search?q=2102 matches course numbers containing 2102.
+    e.g. /courses/search?q=principles returns courses with that word in the title.
     """
     client = get_client()
+    select = "id, course_code, department, course_number, title"
 
-    # Try matching course_code prefix first (most common use case)
+    # 1. Try exact course code prefix first (e.g. "BIOL 1")
     result = (
         client.table("courses")
-        .select("id, course_code, department, course_number, title")
+        .select(select)
         .ilike("course_code", f"{q.upper()}%")
         .order("course_code")
         .limit(limit)
         .execute()
     )
+    if result.data:
+        return result.data
 
-    # If no prefix match, fall back to contains search
-    if not result.data:
-        result = (
-            client.table("courses")
-            .select("id, course_code, department, course_number, title")
-            .ilike("course_code", f"%{q.upper()}%")
-            .order("course_code")
-            .limit(limit)
-            .execute()
-        )
+    # 2. Try title keyword search (e.g. "principles of programming")
+    result = (
+        client.table("courses")
+        .select(select)
+        .ilike("title", f"%{q}%")
+        .order("course_code")
+        .limit(limit)
+        .execute()
+    )
+    if result.data:
+        return result.data
 
+    # 3. Fall back to course_code contains search
+    result = (
+        client.table("courses")
+        .select(select)
+        .ilike("course_code", f"%{q.upper()}%")
+        .order("course_code")
+        .limit(limit)
+        .execute()
+    )
     return result.data
 
 
@@ -127,18 +140,28 @@ def get_course(course_code: str):
         import re
         code = re.sub(r"([A-Z]+)(\d)", r"\1 \2", code)
 
-    course_result = (
-        client.table("courses")
-        .select("id, course_code, department, course_number, title")
-        .eq("course_code", code)
-        .single()
-        .execute()
-    )
+    try:
+        course_result = (
+            client.table("courses")
+            .select("id, course_code, department, course_number, title")
+            .eq("course_code", code)
+            .maybe_single()
+            .execute()
+        )
+        course = course_result.data if course_result else None
+    except Exception:
+        course = None
 
-    if not course_result.data:
-        raise HTTPException(status_code=404, detail=f"Course '{code}' not found")
-
-    course = course_result.data
+    if not course:
+        # Course missing from catalog — synthesize a minimal record from sections
+        dept = re.match(r"([A-Z]+)", code)
+        course = {
+            "id": None,
+            "course_code": code,
+            "department": dept.group(1) if dept else None,
+            "course_number": code.split()[-1] if " " in code else None,
+            "title": None,
+        }
 
     # Fetch sections for this course with grade totals joined
     sections_result = (

@@ -1,5 +1,7 @@
-import SearchBar from "@/components/SearchBar";
+import Link from "next/link";
 import { GraduationCap, BarChart2, TrendingUp, Shield } from "lucide-react";
+import SearchBar from "@/components/SearchBar";
+import { api } from "@/lib/api";
 
 const FEATURES = [
   {
@@ -19,7 +21,15 @@ const FEATURES = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Fetch departments server-side for the listing
+  let departments: { department: string; course_count: number }[] = [];
+  try {
+    departments = await api.listDepartments();
+  } catch {
+    // fail silently — departments section just won't render
+  }
+
   return (
     <main className="min-h-screen bg-slate-50">
       {/* Hero */}
@@ -44,13 +54,13 @@ export default function HomePage() {
           <SearchBar />
 
           <p className="text-xs text-slate-400">
-            Data sourced from official GSU grade distribution records · 2005–2026
+            Search by course code, title, or department · Data from official GSU records · 2005–2026
           </p>
         </div>
       </section>
 
       {/* Features */}
-      <section className="max-w-4xl mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section className="max-w-4xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-3 gap-6">
         {FEATURES.map(({ icon: Icon, title, desc }) => (
           <div
             key={title}
@@ -65,8 +75,31 @@ export default function HomePage() {
         ))}
       </section>
 
+      {/* Departments */}
+      {departments.length > 0 && (
+        <section className="max-w-4xl mx-auto px-6 pb-16">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">Browse by department</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {departments.map(({ department, course_count }) => (
+              <Link
+                key={department}
+                href={`/department/${department}`}
+                className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex flex-col gap-0.5 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
+              >
+                <span className="font-mono font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
+                  {department}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {course_count} course{course_count !== 1 ? "s" : ""}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Footer */}
-      <footer className="border-t border-slate-200 mt-8">
+      <footer className="border-t border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-8 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-slate-400">
           <span>© {new Date().getFullYear()} PantherGrades</span>
           <span>
