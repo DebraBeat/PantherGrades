@@ -145,8 +145,7 @@ def department_schedule(
         all_courses.add(cc)
         pivot.setdefault(cc, {}).setdefault(tc, []).append(section)
 
-    # 5. Anonymize professors consistently
-    prof_map: dict[str, str] = {}
+    # 5. Build rows with real professor names
     rows: list[ScheduleRow] = []
 
     for course_code in sorted(all_courses):
@@ -158,14 +157,10 @@ def department_schedule(
                 term_cells[tc] = None
                 continue
 
-            raw_names = sorted({
+            # Use real names directly — no anonymization
+            names = sorted({
                 s["professor_name"] for s in cell_sections if s.get("professor_name")
             })
-            labels = []
-            for name in raw_names:
-                if name not in prof_map:
-                    prof_map[name] = _make_label(len(prof_map))
-                labels.append(prof_map[name])
 
             gpas = [
                 s["grade_letter_totals"]["gpa_avg"]
@@ -173,7 +168,7 @@ def department_schedule(
                 if s.get("grade_letter_totals") and s["grade_letter_totals"].get("gpa_avg") is not None
             ]
             term_cells[tc] = ScheduleCell(
-                instructors=labels,
+                instructors=names,
                 avg_gpa=round(sum(gpas) / len(gpas), 2) if gpas else None,
             )
 
