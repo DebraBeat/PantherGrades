@@ -16,7 +16,6 @@ from pydantic import BaseModel
 from typing import Optional
 from app.database import get_client
 from app.auth import get_user_tier, require_pro
-import re
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -149,23 +148,18 @@ def course_summary(course_code: str):
     client = get_client()
     code = course_code.upper().replace("-", " ")
 
-    # Get department from course — fall back to parsing code if not in catalog
-    import re as _re
-    try:
-        course_result = (
-            client.table("courses")
-            .select("department")
-            .eq("course_code", code)
-            .maybe_single()
-            .execute()
-        )
-        dept = course_result.data["department"] if course_result.data else None
-    except Exception:
-        dept = None
+    # Get department from course
+    course_result = (
+        client.table("courses")
+        .select("department")
+        .eq("course_code", code)
+        .single()
+        .execute()
+    )
+    if not course_result.data:
+        raise HTTPException(status_code=404, detail=f"Course '{code}' not found")
 
-    if not dept:
-        m = _re.match(r"([A-Z]+)", code)
-        dept = m.group(1) if m else code.split()[0]
+    dept = course_result.data["department"]
 
     # Fetch this course's sections
     sections = _fetch_course_sections(client, code)
