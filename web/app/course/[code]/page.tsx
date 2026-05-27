@@ -134,16 +134,34 @@ export default async function CoursePage({ params }: Props) {
             highlight={dwfHighlight}
           />
           <StatCard
-            label="Online"
-            value={s.pct_online != null ? `${s.pct_online.toFixed(0)}%` : "—"}
-            sub="of sections"
-          />
-          <StatCard
             label="In person"
             value={s.pct_in_person != null ? `${s.pct_in_person.toFixed(0)}%` : "—"}
             sub="of sections"
           />
+          <StatCard
+            label="Online"
+            value={s.pct_online != null ? `${s.pct_online.toFixed(0)}%` : "—"}
+            sub="of sections"
+          />
         </div>
+
+        {/* Show other/hybrid breakdown if it exists */}
+        {s.pct_other != null && s.pct_other >= 1 && (
+          <div className="flex items-center gap-2 text-xs text-slate-500 -mt-2 flex-wrap">
+            <span className="bg-slate-100 px-2.5 py-1 rounded-lg">
+              In person {s.pct_in_person?.toFixed(0)}%
+            </span>
+            <span className="text-slate-300">+</span>
+            <span className="bg-slate-100 px-2.5 py-1 rounded-lg">
+              Online {s.pct_online?.toFixed(0)}%
+            </span>
+            <span className="text-slate-300">+</span>
+            <span className="bg-slate-100 px-2.5 py-1 rounded-lg">
+              Other / hybrid {s.pct_other.toFixed(0)}%
+            </span>
+            <span className="text-slate-400">= 100%</span>
+          </div>
+        )}
 
         {/* Grade distribution */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col gap-4">

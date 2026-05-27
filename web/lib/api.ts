@@ -58,6 +58,7 @@ export interface CourseSummary {
   dept_avg_dwf_pct: number | null;
   pct_online: number | null;
   pct_in_person: number | null;
+  pct_other: number | null;
 }
 
 export interface TrendPoint {

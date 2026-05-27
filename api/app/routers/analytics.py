@@ -34,6 +34,7 @@ class CourseSummary(BaseModel):
     dept_avg_dwf_pct: Optional[float]
     pct_online: Optional[float]
     pct_in_person: Optional[float]
+    pct_other: Optional[float]
 
 
 class TrendPoint(BaseModel):
@@ -172,7 +173,7 @@ def course_summary(course_code: str):
         raise HTTPException(status_code=404, detail=f"No graded sections found for '{code}'")
 
     gpas, dwfs, totals = [], [], []
-    online, in_person = 0, 0
+    online, in_person, other = 0, 0, 0
     for s in sections:
         glt = s.get("grade_letter_totals") or {}
         t = s.get("total") or 0
@@ -186,6 +187,8 @@ def course_summary(course_code: str):
             online += 1
         elif method == "in_person":
             in_person += 1
+        else:
+            other += 1
 
     avg_gpa = _weighted_avg(gpas, totals) if gpas else None
     avg_dwf = round(sum(dwfs) / len(dwfs), 2) if dwfs else None
@@ -226,6 +229,7 @@ def course_summary(course_code: str):
         "dept_avg_dwf_pct": dept_avg_dwf,
         "pct_online": round(online / total_sections_nonzero * 100, 1),
         "pct_in_person": round(in_person / total_sections_nonzero * 100, 1),
+        "pct_other": round(other / total_sections_nonzero * 100, 1),
     }
 
 
