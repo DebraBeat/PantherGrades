@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Users, BookOpen, Wifi, Building2 } from "lucide-react";
 import { api, Section } from "@/lib/api";
 import StatCard from "@/components/StatCard";
+import DataSourceBanner from "@/components/DataSourceBanner";
 import GradeChart from "@/components/GradeChart";
 import TrendChart from "@/components/TrendChart";
 
@@ -216,11 +217,8 @@ export default async function CoursePage({ params }: Props) {
           </div>
         </div>
 
-        {/* Disclaimer */}
-        <p className="text-xs text-slate-400 text-center pb-4">
-          Grade distributions reflect many factors including course difficulty, student preparation,
-          and section size. Use alongside other resources when making enrollment decisions.
-        </p>
+        {/* Data source banner */}
+        <DataSourceBanner />
       </div>
     </main>
   );

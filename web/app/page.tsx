@@ -100,10 +100,32 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* About the data */}
+      <section className="max-w-4xl mx-auto px-6 pb-12">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="font-semibold text-slate-800 text-sm">About the data</h3>
+            <p className="text-xs text-slate-500 max-w-lg leading-relaxed">
+              All data comes from official GSU grade distribution records covering Fall 2005–Spring 2026.
+              Aggregate only — no individual student records. GPA uses a 4.33 scale.
+            </p>
+          </div>
+          <Link
+            href="/about"
+            className="flex-shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700 underline transition-colors"
+          >
+            Learn more →
+          </Link>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-slate-200">
         <div className="max-w-4xl mx-auto px-6 py-8 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-slate-400">
-          <span>© {new Date().getFullYear()} PantherGrades</span>
+          <div className="flex items-center gap-4">
+            <span>© {new Date().getFullYear()} PantherGrades</span>
+            <Link href="/about" className="hover:text-slate-600 underline transition-colors">About the data</Link>
+          </div>
           <span>
             Grade distributions reflect many factors. Use alongside other
             resources when making enrollment decisions.
