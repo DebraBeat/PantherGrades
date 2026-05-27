@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { GraduationCap, BarChart2, TrendingUp, Shield } from "lucide-react";
 import SearchBar from "@/components/SearchBar";
-import { api } from "@/lib/api";
+
 
 const FEATURES = [
   {
@@ -22,10 +22,12 @@ const FEATURES = [
 ];
 
 export default async function HomePage() {
-  // Fetch departments server-side for the listing
+  // Fetch departments server-side — use internal env var (not NEXT_PUBLIC_)
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   let departments: { department: string; course_count: number }[] = [];
   try {
-    departments = await api.listDepartments();
+    const res = await fetch(`${API_URL}/department`, { next: { revalidate: 86400 } });
+    if (res.ok) departments = await res.json();
   } catch {
     // fail silently — departments section just won't render
   }

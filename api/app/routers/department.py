@@ -21,7 +21,7 @@ class DepartmentSummary(BaseModel):
 
 
 class ScheduleCell(BaseModel):
-    instructors: list[str]
+    instructors: list[str]   # real professor names
     avg_gpa: Optional[float]
 
 

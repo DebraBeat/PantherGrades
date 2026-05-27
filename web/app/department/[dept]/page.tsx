@@ -67,8 +67,7 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
             {dept} Course Schedule
           </h1>
           <p className="text-slate-500 text-sm mt-1">
-            {rows.length} courses · last {termCount} semesters ·{" "}
-            <span className="italic">instructor names are anonymized</span>
+  {rows.length} courses · last {termCount} semesters
           </p>
         </div>
 
@@ -152,8 +151,8 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
         </div>
 
         <p className="text-xs text-slate-400 text-center mt-6 max-w-2xl mx-auto">
-          Instructor labels are anonymized — the same label always refers to the same instructor within this table, but labels are not consistent across departments or page loads.
           GPA shown is the average across all sections in that semester.
+          Grade distributions reflect many factors — use alongside other resources when making enrollment decisions.
         </p>
       </div>
     </main>
