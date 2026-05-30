@@ -26,7 +26,7 @@ class Course(BaseModel):
 
 
 class CourseDetail(BaseModel):
-    id: str
+    id: Optional[str]
     course_code: str
     department: Optional[str]
     course_number: Optional[str]

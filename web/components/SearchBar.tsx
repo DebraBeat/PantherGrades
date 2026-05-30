@@ -69,8 +69,10 @@ export default function SearchBar() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (results.length > 0) handleSelectCourse(results[0].course_code);
-    else if (query.trim().length >= 2) handleSelectCourse(query.trim().toUpperCase());
+    // Prefer a department match (faster route), then first course result.
+    // Never navigate to a guessed course code — if there are no results, do nothing.
+    if (deptMatch) handleSelectDept(deptMatch);
+    else if (results.length > 0) handleSelectCourse(results[0].course_code);
   };
 
   const hasResults = results.length > 0 || deptMatch != null;
