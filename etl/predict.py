@@ -157,14 +157,6 @@ def predict_group(group: pd.DataFrame, halflife: int) -> dict:
     if total_weight == 0:
         return None
 
-    # Weighted proportions for each grade
-    preds = {}
-    for col in grade_cols:
-        preds[f"pred_{col}"] = float(
-            (group[col] * group["weight"]).sum() / total_weight / group["total"].mean()
-            * group["total"].mean() / group["total"].mean()
-        )
-
     # Simpler: weighted proportion = sum(count * weight) / sum(total * weight)
     # Compute raw weighted proportions
     raw_preds = {}
