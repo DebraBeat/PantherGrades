@@ -24,6 +24,14 @@ export default function SearchBar() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // Fetch departments once on mount for dept shortcut matching
+  const [allDepts, setAllDepts] = useState<string[]>([]);
+  useEffect(() => {
+    api.getDepartments()
+      .then(setAllDepts)
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (query.length < 2) {
       setResults([]);
@@ -35,15 +43,12 @@ export default function SearchBar() {
     const timeout = setTimeout(async () => {
       setLoading(true);
       try {
-        const [courses, departments] = await Promise.all([
-          api.searchCourses(query),
-          api.getDepartments(),
-        ]);
+        const courses = await api.searchCourses(query);
         setResults(courses);
 
         // Show dept shortcut only when query exactly matches a department code
         const upper = query.trim().toUpperCase();
-        setDeptMatch(departments.find((d) => d === upper) ?? null);
+        setDeptMatch(allDepts.find((d) => d === upper) ?? null);
         setOpen(true);
       } catch {
         setResults([]);
@@ -53,7 +58,7 @@ export default function SearchBar() {
       }
     }, 300);
     return () => clearTimeout(timeout);
-  }, [query]);
+  }, [query, allDepts]);
 
   const handleSelectCourse = (code: string) => {
     setOpen(false);
