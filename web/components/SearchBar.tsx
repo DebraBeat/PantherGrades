@@ -12,11 +12,20 @@ export default function SearchBar() {
   const [deptMatch, setDeptMatch] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const deptsRef = useRef<string[]>([]);  // ref so changes don't trigger re-renders
 
+  // Fetch departments once on mount — store in ref to avoid re-running search effect
+  useEffect(() => {
+    api.getDepartments()
+      .then((depts) => { deptsRef.current = depts; })
+      .catch(() => {});
+  }, []);
+
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
@@ -24,14 +33,7 @@ export default function SearchBar() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // Fetch departments once on mount for dept shortcut matching
-  const [allDepts, setAllDepts] = useState<string[]>([]);
-  useEffect(() => {
-    api.getDepartments()
-      .then(setAllDepts)
-      .catch(() => {});
-  }, []);
-
+  // Search on every query change
   useEffect(() => {
     if (query.length < 2) {
       setResults([]);
@@ -44,21 +46,22 @@ export default function SearchBar() {
       setLoading(true);
       try {
         const courses = await api.searchCourses(query);
-        setResults(courses);
-
-        // Show dept shortcut only when query exactly matches a department code
         const upper = query.trim().toUpperCase();
-        setDeptMatch(allDepts.find((d) => d === upper) ?? null);
+        const matched = deptsRef.current.find((d) => d === upper) ?? null;
+        setResults(courses);
+        setDeptMatch(matched);
         setOpen(true);
       } catch {
         setResults([]);
         setDeptMatch(null);
+        setOpen(false);
       } finally {
         setLoading(false);
       }
     }, 300);
+
     return () => clearTimeout(timeout);
-  }, [query, allDepts]);
+  }, [query]);  // only depends on query now
 
   const handleSelectCourse = (code: string) => {
     setOpen(false);
@@ -74,8 +77,6 @@ export default function SearchBar() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Prefer a department match (faster route), then first course result.
-    // Never navigate to a guessed course code — if there are no results, do nothing.
     if (deptMatch) handleSelectDept(deptMatch);
     else if (results.length > 0) handleSelectCourse(results[0].course_code);
   };
@@ -83,7 +84,7 @@ export default function SearchBar() {
   const hasResults = results.length > 0 || deptMatch != null;
 
   return (
-    <div ref={ref} className="relative w-full max-w-2xl mx-auto">
+    <div ref={containerRef} className="relative w-full max-w-2xl mx-auto">
       <form onSubmit={handleSubmit}>
         <div className="relative flex items-center">
           <Search className="absolute left-4 w-5 h-5 text-slate-400" />
@@ -125,7 +126,7 @@ export default function SearchBar() {
           {/* Course results */}
           {results.map((course) => (
             <button
-              key={course.id}
+              key={course.id ?? course.course_code}
               onClick={() => handleSelectCourse(course.course_code)}
               className="w-full flex items-start gap-4 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0"
             >
