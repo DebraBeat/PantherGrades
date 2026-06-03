@@ -8,6 +8,8 @@ PantherGrades is a data-driven course planning tool for Georgia State University
 
 📊 **[Grade inflation analysis](https://019e620b-069d-6d1e-02a3-f35f60e198a9.share.connect.posit.cloud/)** — statistical analysis of grade inflation at GSU
 
+**Watch the video** 👇👇👇
+
 🎥 [![**Watch the video**](https://img.youtube.com/vi/GD6SgRUoRzo/hqdefault.jpg)](https://www.youtube.com/embed/GD6SgRUoRzo)
 ---
 
