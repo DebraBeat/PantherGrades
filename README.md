@@ -5,7 +5,9 @@
 PantherGrades is a data-driven course planning tool for Georgia State University students. It surfaces real grade distribution data for every GSU course going back to Fall 2005 — so students can make smarter decisions at registration.
 
 🔗 **[panther-grades.vercel.app](https://panther-grades.vercel.app)**
+
 📊 **[Grade inflation analysis](https://019e620b-069d-6d1e-02a3-f35f60e198a9.share.connect.posit.cloud/)** — statistical analysis of grade inflation at GSU
+
 🎥 **[![Watch the video](https://img.youtube.com/vi/GD6SgRUoRzo/hqdefault.jpg)](https://www.youtube.com/embed/GD6SgRUoRzo)**
 ---
 
