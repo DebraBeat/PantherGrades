@@ -28,8 +28,11 @@ PantherGrades is a data-driven course planning tool for Georgia State University
 
 > ![course viewer](screenshot0.png)
 
-![schedule](screenshot1.png)
+> ![homepage](screenshot2.png)
 
+> ![schedule](screenshot1.png)
+
+> ![analysis](image.png)
 ---
 
 ## Architecture
